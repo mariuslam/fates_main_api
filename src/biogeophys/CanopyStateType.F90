@@ -10,7 +10,7 @@ module CanopyStateType
   use landunit_varcon , only : istsoil, istcrop
   use clm_varpar      , only : nlevcan, nvegwcs
   use clm_varcon      , only : spval  
-  use clm_varctl      , only : iulog, use_cn, use_fates, use_hydrstress
+  use clm_varctl      , only : iulog, use_cn, use_fates, use_fates_sp, use_hydrstress
   use LandunitType    , only : lun                
   use PatchType       , only : patch                
   !
@@ -28,6 +28,11 @@ module CanopyStateType
      real(r8) , pointer :: tsai_patch               (:)   ! patch canopy one-sided stem area index, no burying by snow
      real(r8) , pointer :: elai_patch               (:)   ! patch canopy one-sided leaf area index with burying by snow
      real(r8) , pointer :: esai_patch               (:)   ! patch canopy one-sided stem area index with burying by snow
+
+     real(r8) , pointer :: tlai_hist_patch               (:)   ! patch canopy one-sided leaf area index, for SP mode
+     real(r8) , pointer :: tsai_hist_patch               (:)   ! patch canopy one-sided stem area index, for SP mode
+     real(r8) , pointer :: htop_hist_patch               (:)   ! patch canopy height, for SP mode  
+ 
      real(r8) , pointer :: elai240_patch            (:)   ! patch canopy one-sided leaf area index with burying by snow average over 10days 
      real(r8) , pointer :: laisun_patch             (:)   ! patch patch sunlit projected leaf area index  
      real(r8) , pointer :: laisha_patch             (:)   ! patch patch shaded projected leaf area index  
@@ -108,6 +113,9 @@ contains
 
     allocate(this%frac_veg_nosno_patch     (begp:endp))           ; this%frac_veg_nosno_patch     (:)   = huge(1)
     allocate(this%frac_veg_nosno_alb_patch (begp:endp))           ; this%frac_veg_nosno_alb_patch (:)   = 0
+    allocate(this%tlai_hist_patch          (begp:endp))           ; this%tlai_hist_patch          (:)   = nan
+    allocate(this%tsai_hist_patch          (begp:endp))           ; this%tsai_hist_patch          (:)   = nan
+    allocate(this%htop_hist_patch          (begp:endp))           ; this%htop_hist_patch          (:)   = nan
     allocate(this%tlai_patch               (begp:endp))           ; this%tlai_patch               (:)   = nan
     allocate(this%tsai_patch               (begp:endp))           ; this%tsai_patch               (:)   = nan
     allocate(this%elai_patch               (begp:endp))           ; this%elai_patch               (:)   = nan
@@ -163,16 +171,6 @@ contains
          avgflag='A', long_name='exposed one-sided stem area index', &
          ptr_patch=this%esai_patch)
 
-    this%tlai_patch(begp:endp) = spval
-    call hist_addfld1d (fname='TLAI', units='m^2/m^2', &
-         avgflag='A', long_name='total projected leaf area index', &
-         ptr_patch=this%tlai_patch)
-
-    this%tsai_patch(begp:endp) = spval
-    call hist_addfld1d (fname='TSAI', units='m^2/m^2', &
-         avgflag='A', long_name='total projected stem area index', &
-         ptr_patch=this%tsai_patch)
-
     this%laisun_patch(begp:endp) = spval
     call hist_addfld1d (fname='LAISUN', units='m^2/m^2', &
          avgflag='A', long_name='sunlit projected leaf area index', &
@@ -189,11 +187,6 @@ contains
             avgflag='A', long_name='sunlit fraction of canopy', &
             ptr_patch=this%fsun_patch, default='inactive')
 
-       this%htop_patch(begp:endp) = spval
-       call hist_addfld1d (fname='HTOP', units='m', &
-            avgflag='A', long_name='canopy top', &
-            ptr_patch=this%htop_patch)
-
        this%hbot_patch(begp:endp) = spval
        call hist_addfld1d (fname='HBOT', units='m', &
             avgflag='A', long_name='canopy bottom', &
@@ -203,12 +196,44 @@ contains
        call hist_addfld1d (fname='DISPLA', units='m', &
             avgflag='A', long_name='displacement height', &
             ptr_patch=this%displa_patch, default='inactive')
-    end if
+     endif !fates or CN
 
-       this%z0m_patch(begp:endp) = spval
-       call hist_addfld1d (fname='Z0M', units='m', &
-            avgflag='A', long_name='momentum roughness length', &
-            ptr_patch=this%z0m_patch, default='inactive')
+     if(use_fates_sp)then
+       this%tlai_hist_patch(begp:endp) = spval
+       call hist_addfld1d (fname='TLAI', units='m', &
+           avgflag='A', long_name='TLAI weights for SP mode', &
+           ptr_patch=this%tlai_hist_patch)
+
+       this%tsai_hist_patch(begp:endp) = spval
+       call hist_addfld1d (fname='TSAI', units='m', &
+           avgflag='A', long_name='TSAI weights for SP mode', &
+           ptr_patch=this%tsai_hist_patch)
+
+       this%htop_hist_patch(begp:endp) = spval
+       call hist_addfld1d (fname='HTOP', units='m', &
+           avgflag='A', long_name='HTOP weights for SP mode', &
+           ptr_patch=this%htop_hist_patch)
+     else
+        this%tlai_patch(begp:endp) = spval
+        call hist_addfld1d (fname='TLAI', units='m^2/m^2', &
+            avgflag='A', long_name='total projected leaf area index', &
+            ptr_patch=this%tlai_patch)
+
+        this%tsai_patch(begp:endp) = spval
+        call hist_addfld1d (fname='TSAI', units='m^2/m^2', &
+            avgflag='A', long_name='total projected stem area index', &
+            ptr_patch=this%tsai_patch)
+
+        this%htop_patch(begp:endp) = spval
+           call hist_addfld1d (fname='HTOP', units='m', &
+            avgflag='A', long_name='canopy top', &
+            ptr_patch=this%htop_patch)
+     endif !FATES_SP
+
+     this%z0m_patch(begp:endp) = spval
+     call hist_addfld1d (fname='Z0M', units='m', &
+          avgflag='A', long_name='momentum roughness length', &
+           ptr_patch=this%z0m_patch, default='inactive')
 
     ! Accumulated fields
     this%fsun24_patch(begp:endp) = spval
@@ -468,6 +493,10 @@ contains
           this%laisun_patch(p) = 0._r8
           this%laisha_patch(p) = 0._r8
        end if
+
+       this%tlai_hist_patch(p)       = 0._r8
+       this%tsai_hist_patch(p)       = 0._r8
+       this%htop_hist_patch(p)       = 0._r8
 
        ! needs to be initialized to spval to avoid problems when averaging for the accum
        ! field
