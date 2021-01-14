@@ -2174,7 +2174,7 @@ module CLMFatesInterfaceMod
     real(r8) :: dtime
     integer  :: s, c, nc
 
-    call t_startf('fates_update_hifrq_hist')
+    call t_startf('fates_wrap_hifrq_hist')
 
     associate(& 
         hr            => soilbiogeochem_carbonflux_inst%hr_col,       & ! (gC/m2/s) total heterotrophic respiration
